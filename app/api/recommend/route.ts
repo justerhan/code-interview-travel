@@ -67,7 +67,9 @@ Output JSON ONLY with this schema:
   const facts = enriched.map((e, i) => 
     `#${i+1} ${e.place} | flightUSD=${e.flightPrice} | totalCostUSD=${e.estCostUsd} | weather='${e.weatherSummary}' | hotels=${JSON.stringify(e.hotels)}`
   ).join('\n');
-  const user = `User preferences: ${JSON.stringify(preferences)}\n\nFacts to include exactly as given (do not alter numbers):\n${facts}`;
+  const lastUser = Array.isArray(history) ? [...history].reverse().find(m => m.role === 'user') : undefined;
+  const climateFollowUp = !!lastUser && /\b(climate|weather|temperature)\b/i.test(lastUser.content);
+  const user = `User preferences: ${JSON.stringify(preferences)}\n\nFacts to include exactly as given (do not alter numbers):\n${facts}\n\nTask: ${climateFollowUp ? 'Return concise climate-focused info per destination only.' : 'Return well-rounded recommendations.'}`;
 
   const historyMessages = Array.isArray(history)
     ? history.map((m) => ({ role: m.role, content: m.content }))
@@ -78,7 +80,7 @@ Output JSON ONLY with this schema:
     temperature: 0.4,
     response_format: { type: 'json_object' },
     messages: [
-      { role: 'system', content: sys },
+      { role: 'system', content: sys + (climateFollowUp ? '\nInstruction: If the latest user turn asks only about climate/weather, keep output minimal: per destination include weatherSummary and a single-sentence why/appeal. Avoid flights, total costs, hotels, or extra tips.' : '') },
       ...historyMessages,
       { role: 'user', content: user }
     ]
@@ -87,24 +89,32 @@ Output JSON ONLY with this schema:
   const obj = JSON.parse(completion.choices[0]?.message?.content || '{}');
   const structured = recommendationSchema.parse(obj);
 
-  const md = [
-    `**Top picks** (based on your prefs):`,
-    ...structured.destinations.map((d) => {
-      const parts = [
-        `\n### ${d.name}, ${d.country}`,
-        `- **Why**: ${d.why || 'Great fit for your stated interests and weather prefs.'}`,
-        d.bestTimeToVisit ? `- **Best time to visit**: ${d.bestTimeToVisit}` : '',
-        `- **Weather**: ${d.weatherSummary || '—'}`,
-        d.flightPriceUsd ? `- **Flight estimate**: $${d.flightPriceUsd.toLocaleString()} roundtrip` : '',
-        `- **Est. total trip cost**: $${d.estCostUsd?.toLocaleString() || '—'}`,
-        d.hotels?.length ? `- **Hotel suggestions**:\n${d.hotels.map(h => `  - ${h.name} ($${h.pricePerNight}/night${h.rating ? `, ${h.rating}★` : ''}${h.type ? ` - ${h.type}` : ''})`).join('\n')}` : '',
-        `- **Highlights**: ${d.highlights.join(', ') || '—'}`,
-        d.culturalInsights?.length ? `- **Cultural insights**:\n${d.culturalInsights.map(ci => `  - ${ci}`).join('\n')}` : '',
-      ];
-      return parts.filter(Boolean).join('\n');
-    }),
-    structured.tips?.length ? `\n**General Travel Tips**\n- ${structured.tips.join('\n- ')}` : ''
-  ].join('\n');
+  const md = climateFollowUp
+    ? [
+        `**Climate overview**`,
+        ...structured.destinations.map((d) => {
+          const appeal = d.why || (d.highlights?.[0] ? `Appeal: ${d.highlights[0]}` : '');
+          return `- ${d.name}, ${d.country}: ${d.weatherSummary || '—'}${appeal ? ` — ${appeal}` : ''}`;
+        }),
+      ].join('\n')
+    : [
+        `**Top picks** (based on your prefs):`,
+        ...structured.destinations.map((d) => {
+          const parts = [
+            `\n### ${d.name}, ${d.country}`,
+            `- **Why**: ${d.why || 'Great fit for your stated interests and weather prefs.'}`,
+            d.bestTimeToVisit ? `- **Best time to visit**: ${d.bestTimeToVisit}` : '',
+            `- **Weather**: ${d.weatherSummary || '—'}`,
+            d.flightPriceUsd ? `- **Flight estimate**: $${d.flightPriceUsd.toLocaleString()} roundtrip` : '',
+            `- **Est. total trip cost**: $${d.estCostUsd?.toLocaleString() || '—'}`,
+            d.hotels?.length ? `- **Hotel suggestions**:\n${d.hotels.map(h => `  - ${h.name} ($${h.pricePerNight}/night${h.rating ? `, ${h.rating}★` : ''}${h.type ? ` - ${h.type}` : ''})`).join('\n')}` : '',
+            `- **Highlights**: ${d.highlights.join(', ') || '—'}`,
+            d.culturalInsights?.length ? `- **Cultural insights**:\n${d.culturalInsights.map(ci => `  - ${ci}`).join('\n')}` : '',
+          ];
+          return parts.filter(Boolean).join('\n');
+        }),
+        structured.tips?.length ? `\n**General Travel Tips**\n- ${structured.tips.join('\n- ')}` : ''
+      ].join('\n');
 
   return NextResponse.json({ json: structured, markdown: md });
 }
