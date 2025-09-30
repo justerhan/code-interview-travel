@@ -7,8 +7,10 @@
     "build": "next build",
     "start": "next start -p 3000",
     "lint": "next lint",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
     "format": "prettier --write .",
     "test": "vitest run",
+    "test:cov": "vitest run --coverage",
     "test:watch": "vitest"
   },
   "dependencies": {

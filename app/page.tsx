@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { PreferenceForm } from '@/components/PreferenceForm';
 import { Chat } from '@/components/Chat';
 import { type ParsedPreferences, parsedPreferencesSchema } from '@/lib/schemas';
@@ -8,6 +8,7 @@ export default function Page() {
   const [messages, setMessages] = useState<{ role: 'user' | 'assistant'; content: string }[]>([]);
   const [parsed, setParsed] = useState<ParsedPreferences | null>(null);
   const [loading, setLoading] = useState(false);
+  const streamAbortRef = useRef<AbortController | null>(null);
 
   async function onSubmitInput(text: string) {
     setLoading(true);
@@ -26,10 +27,17 @@ export default function Page() {
 
       // Streamed recommend call
       setMessages((m) => [...m, { role: 'assistant', content: '' }]);
+      // Abort any prior stream
+      if (streamAbortRef.current) {
+        try { streamAbortRef.current.abort(); } catch {}
+      }
+      streamAbortRef.current = new AbortController();
+
       const streamRes = await fetch('/api/recommend/stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ preferences: parsedPref, history: nextHistory }),
+        signal: streamAbortRef.current.signal,
       });
       if (streamRes.body) {
         const reader = streamRes.body.getReader();
@@ -76,6 +84,8 @@ export default function Page() {
     } catch (e: any) {
       setMessages((m) => [...m, { role: 'assistant', content: `Oops: ${e.message}` }]);
     } finally {
+      // clear abort controller on completion
+      streamAbortRef.current = null;
       setLoading(false);
     }
   }
