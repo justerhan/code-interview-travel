@@ -1,6 +1,18 @@
 export type LatLng = { lat: number; lng: number };
 export type Hotel = { name: string; pricePerNight: number; rating?: number; type?: string };
 
+// Simple in-memory TTL cache (per serverless instance)
+const cache = new Map<string, { value: any; exp: number }>();
+function setCache(key: string, value: any, ttlSec: number) {
+  cache.set(key, { value, exp: Date.now() + ttlSec * 1000 });
+}
+function getCache<T = any>(key: string): T | undefined {
+  const hit = cache.get(key);
+  if (!hit) return undefined;
+  if (Date.now() > hit.exp) { cache.delete(key); return undefined; }
+  return hit.value as T;
+}
+
 const COORDS: Record<string, LatLng> = {
   'Lisbon, Portugal': { lat: 38.7223, lng: -9.1393 },
   'Canary Islands, Spain': { lat: 28.2916, lng: -16.6291 },
@@ -9,10 +21,15 @@ const COORDS: Record<string, LatLng> = {
 };
 
 export async function getWeatherSummary(place: string, month?: string): Promise<string> {
+  const cacheKey = `weather:${place}:${month || ''}`;
+  const cached = getCache<string>(cacheKey);
+  if (cached) return cached;
   const coords = COORDS[place];
   const monthHint = month ? ` in ${month}` : '';
   if (!process.env.WEATHER_API_BASE || !coords) {
-    return `Typically mild to warm${monthHint}; expect 65–80°F, low rain.`;
+    const fallback = `Typically mild to warm${monthHint}; expect 65–80°F, low rain.`;
+    setCache(cacheKey, fallback, 12 * 3600);
+    return fallback;
   }
   try {
     const url = `${process.env.WEATHER_API_BASE}?latitude=${coords.lat}&longitude=${coords.lng}&daily=temperature_2m_max,temperature_2m_min,precipitation_sum&forecast_days=7&timezone=auto`;
@@ -24,9 +41,13 @@ export async function getWeatherSummary(place: string, month?: string): Promise<
     const avgHigh = highs.reduce((a: number, b: number) => a + b, 0) / (highs.length || 1);
     const avgLow = lows.reduce((a: number, b: number) => a + b, 0) / (lows.length || 1);
     const avgPrecip = precip.reduce((a: number, b: number) => a + b, 0) / (precip.length || 1);
-    return `Avg highs ${avgHigh.toFixed(0)}°F / lows ${avgLow.toFixed(0)}°F; precipitation ${avgPrecip.toFixed(1)}mm/day.`;
+    const summary = `Avg highs ${avgHigh.toFixed(0)}°F / lows ${avgLow.toFixed(0)}°F; precipitation ${avgPrecip.toFixed(1)}mm/day.`;
+    setCache(cacheKey, summary, 3600); // 1h
+    return summary;
   } catch {
-    return `Seasonal: pleasant${monthHint}, moderate temps, limited rain.`;
+    const fallback = `Seasonal: pleasant${monthHint}, moderate temps, limited rain.`;
+    setCache(cacheKey, fallback, 3600);
+    return fallback;
   }
 }
 
@@ -65,9 +86,11 @@ export function estimateTripCostUSD(opts: {
   const nights = Math.max(1, (opts.durationDays || 5) - 1);
   return flight + nights * (nightly[opts.comfort || 'mid']);
 }
-
-export function getHotelSuggestions(destination: string, comfort: 'budget' | 'mid' | 'premium' = 'mid') {
-  const hotelsByDestination: Record<string, any[]> = {
+export function getHotelSuggestions(destination: string, comfort: 'budget' | 'mid' | 'premium' = 'mid'): Hotel[] {
+  const cacheKey = `hotels:${destination}:${comfort}`;
+  const cached = getCache<Hotel[]>(cacheKey);
+  if (cached) return cached;
+  const hotelsByDestination: Record<string, Hotel[]> = {
     'Lisbon, Portugal': [
       { name: 'My Story Hotel Rossio', pricePerNight: 120, rating: 4.3, type: 'Boutique Hotel' },
       { name: 'Hotel Avenida Palace', pricePerNight: 180, rating: 4.5, type: 'Historic Luxury' },
@@ -90,13 +113,17 @@ export function getHotelSuggestions(destination: string, comfort: 'budget' | 'mi
     ],
   };
 
-  const hotels = hotelsByDestination[destination] || [];
-  
-  // Filter by comfort level
+  const hotels: Hotel[] = hotelsByDestination[destination] || [];
+
+  let result: Hotel[];
   if (comfort === 'budget') {
-    return hotels.filter(h => h.pricePerNight < 150).slice(0, 2);
+    result = hotels.filter(h => h.pricePerNight < 150).slice(0, 2);
   } else if (comfort === 'premium') {
-    return hotels.filter(h => h.pricePerNight > 200).slice(0, 2);
+    result = hotels.filter(h => h.pricePerNight > 200).slice(0, 2);
+  } else {
+    result = hotels.filter(h => h.pricePerNight >= 100 && h.pricePerNight <= 250).slice(0, 2);
   }
-  return hotels.filter(h => h.pricePerNight >= 100 && h.pricePerNight <= 250).slice(0, 2);
+  result = result.map(h => ({ ...h, name: h.name.charAt(0).toUpperCase() + h.name.slice(1) }));
+  setCache(cacheKey, result, 6 * 3600);
+  return result;
 }

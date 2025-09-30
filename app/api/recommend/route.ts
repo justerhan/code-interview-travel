@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { openai, model } from '@/lib/llm';
-import { type ParsedPreferences, recommendationSchema } from '@/lib/schemas';
+import { type ParsedPreferences, type Recommendation } from '@/lib/schemas';
 import { estimateTripCostUSD, getWeatherSummary, estimateFlightPriceUSD, getHotelSuggestions } from '@/lib/tools';
+import { classify, taskFor, type FollowUpMode } from '@/lib/followups';
+import { schemaFor } from '@/lib/modeSchemas';
 
 export const runtime = 'edge';
 
@@ -94,33 +96,8 @@ Output JSON ONLY with this schema:
     `#${i+1} ${e.place} | flightUSD=${e.flightPrice} | totalCostUSD=${e.estCostUsd} | weather='${e.weatherSummary}' | fun=${e.funScore} | food=${e.foodScore} | hotels=${JSON.stringify(e.hotels)}`
   ).join('\n');
   const lastUser = Array.isArray(history) ? [...history].reverse().find(m => m.role === 'user') : undefined;
-  type FollowUpMode = 'none' | 'climate' | 'costs' | 'flights' | 'hotels' | 'highlights' | 'tips' | 'fun' | 'food';
-  const classify = (content?: string): FollowUpMode => {
-    if (!content) return 'none';
-    const c = content.toLowerCase();
-    if (/(climate|weather|temperature)/i.test(c)) return 'climate';
-    if (/(cost|price|budget|how much|estimate)/i.test(c)) return 'costs';
-    if (/(flight|airfare|plane|airline)/i.test(c)) return 'flights';
-    if (/(hotel|stay|accommodation)/i.test(c)) return 'hotels';
-    if (/(highlight|what to do|things to do|must[- ]see|attraction|activities|best activities)/i.test(c)) return 'highlights';
-    if (/(tip|advice|insight|etiquette|safety)/i.test(c)) return 'tips';
-    if (/(fun|most fun|lively|vibe|party)/i.test(c)) return 'fun';
-    if (/(best food|food scene|cuisine|restaurants?|dining|eat)/i.test(c)) return 'food';
-    return 'none';
-  };
   const mode: FollowUpMode = classify(lastUser?.content);
-  const taskMap: Record<FollowUpMode, string> = {
-    none: 'Return well-rounded recommendations.',
-    climate: 'Return concise climate summary per destination only.',
-    costs: 'Return concise total cost estimate per destination only.',
-    flights: 'Return concise flight price per destination only.',
-    hotels: 'Return 1-2 concise hotel suggestions (name + pricePerNight) per destination only.',
-    highlights: 'Return 2-3 concise activity highlights per destination only.',
-    tips: 'Return 2-3 concise travel/cultural tips per destination only.',
-    fun: 'Return concise fun rating per destination only (0-100).',
-    food: 'Return concise food rating per destination only (0-100).'
-  };
-  const user = `User preferences: ${JSON.stringify(preferences)}\n\nFacts to include exactly as given (do not alter numbers):\n${facts}\n\nTask: ${taskMap[mode]}`;
+  const user = `User preferences: ${JSON.stringify(preferences)}\n\nFacts to include exactly as given (do not alter numbers):\n${facts}\n\nTask: ${taskFor[mode]}`;
 
   const historyMessages = Array.isArray(history)
     ? history.map((m) => ({ role: m.role, content: m.content }))
@@ -147,11 +124,34 @@ Output JSON ONLY with this schema:
     ]
   });
 
-  const obj = JSON.parse(completion.choices[0]?.message?.content || '{}');
-  const structured = recommendationSchema.parse(obj);
+  let structured: Recommendation;
+  try {
+    const raw = completion.choices[0]?.message?.content || '{}';
+    const obj = JSON.parse(raw);
+    structured = schemaFor(mode).parse(obj) as Recommendation;
+  } catch (e: any) {
+    const msg = typeof e?.message === 'string' ? e.message : 'Parse error';
+    const md = `**Sorry** — I had trouble understanding the results.\n- Error: ${msg}\n- Please try rephrasing your request or asking again.`;
+    return NextResponse.json({ json: { destinations: [], tips: [] }, markdown: md });
+  }
+
+  // Normalize structured data: ensure arrays, clamp scores, dedupe highlights
+  structured.destinations = (structured.destinations || []).map((d) => {
+    const highlights = Array.from(new Set((d.highlights || []).map((s) => (s || '').trim()).filter(Boolean)));
+    const hotels = (d.hotels || []).filter(h => h && typeof h.name === 'string' && typeof h.pricePerNight === 'number');
+    const clamp = (n?: number) => typeof n === 'number' ? Math.max(0, Math.min(100, Math.round(n))) : undefined;
+    return {
+      ...d,
+      highlights,
+      hotels,
+      funScore: clamp(d.funScore),
+      foodScore: clamp((d as any).foodScore),
+      culturalInsights: (d.culturalInsights || []).filter(Boolean),
+    };
+  });
 
   const md = (() => {
-    const label = (d: any) => d.country ? `${d.name}, ${d.country}` : d.name;
+    const label = (d: Recommendation['destinations'][number]) => d.country ? `${d.name}, ${d.country}` : d.name;
     const aggregateActivities = mode === 'highlights' && /\b(best|top)\b/i.test(lastUser?.content || '');
     const aggregatedActivities: string[] = aggregateActivities
       ? Array.from(
@@ -168,7 +168,7 @@ Output JSON ONLY with this schema:
         return [
           `**Food rating (0–100)**`,
           ...[...structured.destinations]
-            .map(d => ({ name: label(d), score: (d as any).foodScore as number | undefined, why: d.why }))
+            .map(d => ({ name: label(d), score: d.foodScore, why: d.why }))
             .sort((a, b) => (b.score ?? -1) - (a.score ?? -1))
             .map(x => `- ${x.name}: ${typeof x.score === 'number' ? x.score : '—'}${x.why ? ` — ${x.why}` : ''}`)
         ].join('\n');

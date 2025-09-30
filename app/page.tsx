@@ -12,7 +12,7 @@ export default function Page() {
   async function onSubmitInput(text: string) {
     setLoading(true);
     // Compose up-to-date history including the new user message
-    const nextHistory = [...messages, { role: 'user' as const, content: text }];
+    const nextHistory = [...messages, { role: 'user' as const, content: text }].slice(-8);
     setMessages(nextHistory);
     try {
       const res = await fetch('/api/parse', {
