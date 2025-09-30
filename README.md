@@ -33,6 +33,11 @@ pnpm dev
 # open http://localhost:3000
 ```
 
+## Demo
+
+[![Watch the demo](thumb.jpg)](https://www.youtube.com/watch?v=I_Mmd9F5O8c)
+
+
 ## Running tests
 
 This project uses Vitest.
