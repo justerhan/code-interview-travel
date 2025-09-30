@@ -24,13 +24,55 @@ export default function Page() {
       const parsedPref = parsedPreferencesSchema.parse(data.preferences);
       setParsed(parsedPref);
 
-      const recRes = await fetch('/api/recommend', {
+      // Streamed recommend call
+      setMessages((m) => [...m, { role: 'assistant', content: '' }]);
+      const streamRes = await fetch('/api/recommend/stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ preferences: parsedPref, history: nextHistory }),
       });
-      const recData = await recRes.json();
-      setMessages((m) => [...m, { role: 'assistant', content: recData.markdown }]);
+      if (streamRes.body) {
+        const reader = streamRes.body.getReader();
+        const decoder = new TextDecoder();
+        let done = false;
+        while (!done) {
+          const { value, done: readerDone } = await reader.read();
+          done = readerDone;
+          if (value) {
+            const chunk = decoder.decode(value, { stream: true });
+            setMessages((prev) => {
+              const msgs = [...prev];
+              // ensure last is assistant
+              if (msgs.length === 0 || msgs[msgs.length - 1].role !== 'assistant') {
+                msgs.push({ role: 'assistant', content: '' });
+              }
+              msgs[msgs.length - 1] = {
+                role: 'assistant',
+                content: (msgs[msgs.length - 1].content || '') + chunk,
+              };
+              return msgs;
+            });
+          }
+        }
+      } else {
+        // Fallback to non-streaming if body missing
+        const recRes = await fetch('/api/recommend', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ preferences: parsedPref, history: nextHistory }),
+        });
+        const recData = await recRes.json();
+        setMessages((m) => {
+          const msgs = [...m];
+          // replace placeholder with final content
+          if (msgs.length && msgs[msgs.length - 1].role === 'assistant') {
+            msgs[msgs.length - 1] = { role: 'assistant', content: recData.markdown };
+          } else {
+            msgs.push({ role: 'assistant', content: recData.markdown });
+          }
+          return msgs;
+        });
+      }
     } catch (e: any) {
       setMessages((m) => [...m, { role: 'assistant', content: `Oops: ${e.message}` }]);
     } finally {
