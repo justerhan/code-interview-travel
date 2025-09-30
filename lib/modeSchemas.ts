@@ -15,14 +15,48 @@ function requireKeyWhenDestinations<K extends string>(key: K) {
     );
 }
 
-const funSchema = base.merge(requireKeyWhenDestinations('funScore'));
-const foodSchema = base.merge(requireKeyWhenDestinations('foodScore'));
-const highlightsSchema = base; // already has highlights defaulted
-const climateSchema = base; // uses weatherSummary
-const costsSchema = base; // estCostUsd
-const flightsSchema = base; // flightPriceUsd
-const hotelsSchema = base; // hotels
-const tipsSchema = base; // culturalInsights or tips
+const funSchema = base.superRefine((obj, ctx) => {
+  const dests = (obj as any).destinations || [];
+  if (dests.length > 0 && !dests.some((d: any) => typeof d.funScore !== 'undefined')) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'At least one destination should include funScore' });
+  }
+});
+const foodSchema = base.superRefine((obj, ctx) => {
+  const dests = (obj as any).destinations || [];
+  if (dests.length > 0 && !dests.some((d: any) => typeof d.foodScore !== 'undefined')) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'At least one destination should include foodScore' });
+  }
+});
+const highlightsSchema = base
+  .refine(
+    (obj) => (obj.destinations || []).length === 0 || (obj.destinations || []).some((d) => Array.isArray(d.highlights) && d.highlights.length > 0),
+    { message: 'At least one destination should include highlights when present' }
+  );
+const climateSchema = base
+  .refine(
+    (obj) => (obj.destinations || []).length === 0 || (obj.destinations || []).some((d) => typeof d.weatherSummary === 'string' && d.weatherSummary.length > 0),
+    { message: 'At least one destination should include weatherSummary when present' }
+  );
+const costsSchema = base
+  .refine(
+    (obj) => (obj.destinations || []).length === 0 || (obj.destinations || []).some((d) => typeof d.estCostUsd === 'number'),
+    { message: 'At least one destination should include estCostUsd when present' }
+  );
+const flightsSchema = base
+  .refine(
+    (obj) => (obj.destinations || []).length === 0 || (obj.destinations || []).some((d) => typeof d.flightPriceUsd === 'number'),
+    { message: 'At least one destination should include flightPriceUsd when present' }
+  );
+const hotelsSchema = base
+  .refine(
+    (obj) => (obj.destinations || []).length === 0 || (obj.destinations || []).some((d) => Array.isArray(d.hotels) && d.hotels.length > 0),
+    { message: 'At least one destination should include hotels when present' }
+  );
+const tipsSchema = base
+  .refine(
+    (obj) => Array.isArray((obj as any).tips) || (obj.destinations || []).some((d) => Array.isArray(d.culturalInsights) && d.culturalInsights.length > 0) || (obj.destinations || []).length === 0,
+    { message: 'Provide tips or culturalInsights for at least one destination when present' }
+  );
 
 export function schemaFor(mode: FollowUpMode) {
   switch (mode) {

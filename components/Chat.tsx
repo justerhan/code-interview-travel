@@ -7,15 +7,44 @@ export function Chat({
   messages,
   onSubmitInput,
   loading,
+  streamingEnabled,
+  onToggleStreaming,
+  onStop,
 }: {
   messages: { role: 'user' | 'assistant'; content: string }[];
   onSubmitInput: (text: string) => void;
   loading: boolean;
+  streamingEnabled?: boolean;
+  onToggleStreaming?: (v: boolean) => void;
+  onStop?: () => void;
 }) {
   const [input, setInput] = useState('');
 
   return (
     <div className="border rounded-2xl p-4 bg-vapor-card border-vapor-purple/30 shadow-sm">
+      <div className="mb-3 flex items-center justify-between">
+        <div className="text-sm text-vapor-subtext">Assistant</div>
+        <div className="flex items-center gap-3">
+          <label className="flex items-center gap-2 text-sm text-vapor-subtext select-none">
+            <input
+              type="checkbox"
+              className="accent-vapor-cyan"
+              checked={!!streamingEnabled}
+              onChange={(e) => onToggleStreaming?.(e.target.checked)}
+            />
+            Streaming
+          </label>
+          <button
+            className="px-2 py-1 rounded-md bg-vapor-pink text-vapor-bg disabled:opacity-40"
+            onClick={() => onStop?.()}
+            disabled={!loading}
+            title="Stop streaming"
+            aria-label="Stop streaming"
+          >
+            Stop
+          </button>
+        </div>
+      </div>
       <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1" aria-live="polite" role="log">
         {messages.map((m, i) => (
           <div key={i} className={m.role === 'user' ? 'text-right' : 'text-left'}>
