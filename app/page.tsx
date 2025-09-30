@@ -11,12 +11,14 @@ export default function Page() {
 
   async function onSubmitInput(text: string) {
     setLoading(true);
-    setMessages((m) => [...m, { role: 'user', content: text }]);
+    // Compose up-to-date history including the new user message
+    const nextHistory = [...messages, { role: 'user' as const, content: text }];
+    setMessages(nextHistory);
     try {
       const res = await fetch('/api/parse', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text, history: messages }),
+        body: JSON.stringify({ text, history: nextHistory }),
       });
       const data = await res.json();
       const parsedPref = parsedPreferencesSchema.parse(data.preferences);
@@ -25,7 +27,7 @@ export default function Page() {
       const recRes = await fetch('/api/recommend', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ preferences: parsedPref, history: messages }),
+        body: JSON.stringify({ preferences: parsedPref, history: nextHistory }),
       });
       const recData = await recRes.json();
       setMessages((m) => [...m, { role: 'assistant', content: recData.markdown }]);

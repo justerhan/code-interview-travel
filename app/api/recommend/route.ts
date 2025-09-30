@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { openai, model } from '@/lib/llm';
 import { type ParsedPreferences, recommendationSchema } from '@/lib/schemas';
-import { estimateTripCostUSD, getWeatherSummary } from '@/lib/tools';
+import { estimateTripCostUSD, getWeatherSummary, estimateFlightPriceUSD, getHotelSuggestions } from '@/lib/tools';
 
 export const runtime = 'edge';
 
@@ -21,29 +21,57 @@ function candidateDestinations(pref: ParsedPreferences) {
 }
 
 export async function POST(req: NextRequest) {
-  const { preferences } = (await req.json()) as { preferences: ParsedPreferences };
+  const { preferences, history } = (await req.json()) as { preferences: ParsedPreferences; history?: { role: 'user' | 'assistant'; content: string }[] };
   const picks = candidateDestinations(preferences);
+
+  const comfort = preferences.budgetUsd && preferences.budgetUsd < 1500 ? 'budget' : 
+                  preferences.budgetUsd && preferences.budgetUsd > 3000 ? 'premium' : 'mid';
 
   const enriched = await Promise.all(
     picks.map(async (d) => {
       const place = `${d.name}, ${d.country}`;
-      const weatherSummary = await getWeatherSummary(place, preferences.month);
-      const estCostUsd = estimateTripCostUSD({ destination: place, durationDays: preferences.durationDays, comfort: 'mid' });
-      return { place, weatherSummary, estCostUsd };
+      const month = preferences.month || undefined;
+      const weatherSummary = await getWeatherSummary(place, month);
+      const flightPrice = estimateFlightPriceUSD({ destination: place, month });
+      const estCostUsd = estimateTripCostUSD({ 
+        destination: place, 
+        durationDays: preferences.durationDays, 
+        comfort,
+        flightPrice 
+      });
+      const hotels = getHotelSuggestions(place, comfort);
+      return { place, weatherSummary, estCostUsd, flightPrice, hotels };
     })
   );
 
-  const sys = `You are a concise travel recommender. Use provided facts; avoid fabrications.
+  const sys = `You are a knowledgeable travel recommender. Use provided facts; avoid fabrications.
 Output JSON ONLY with this schema:
 {
   "destinations": [
-    { "name": string, "country": string, "bestMonth"?: string, "estCostUsd"?: number, "weatherSummary"?: string, "highlights": string[], "why"?: string }
+    { 
+      "name": string, 
+      "country": string, 
+      "bestMonth"?: string,
+      "bestTimeToVisit"?: string (e.g., "April-June for mild weather and fewer crowds"),
+      "estCostUsd"?: number, 
+      "flightPriceUsd"?: number,
+      "weatherSummary"?: string, 
+      "highlights": string[], 
+      "culturalInsights"?: string[] (2-3 cultural tips, local customs, or insider knowledge),
+      "why"?: string 
+    }
   ],
-  "tips"?: string[]
+  "tips"?: string[] (general travel tips for the region)
 }`;
 
-  const facts = enriched.map((e, i) => `#${i+1} ${e.place} | costUSD=${e.estCostUsd} | weather='${e.weatherSummary}'`).join('\n');
+  const facts = enriched.map((e, i) => 
+    `#${i+1} ${e.place} | flightUSD=${e.flightPrice} | totalCostUSD=${e.estCostUsd} | weather='${e.weatherSummary}' | hotels=${JSON.stringify(e.hotels)}`
+  ).join('\n');
   const user = `User preferences: ${JSON.stringify(preferences)}\n\nFacts to include exactly as given (do not alter numbers):\n${facts}`;
+
+  const historyMessages = Array.isArray(history)
+    ? history.map((m) => ({ role: m.role, content: m.content }))
+    : [];
 
   const completion = await openai.chat.completions.create({
     model: model().name,
@@ -51,6 +79,7 @@ Output JSON ONLY with this schema:
     response_format: { type: 'json_object' },
     messages: [
       { role: 'system', content: sys },
+      ...historyMessages,
       { role: 'user', content: user }
     ]
   });
@@ -60,8 +89,21 @@ Output JSON ONLY with this schema:
 
   const md = [
     `**Top picks** (based on your prefs):`,
-    ...structured.destinations.map((d) => `\n### ${d.name}, ${d.country}\n- **Why**: ${d.why || 'Great fit for your stated interests and weather prefs.'}\n- **Weather**: ${d.weatherSummary || '—'}\n- **Est. total**: $${d.estCostUsd?.toLocaleString() || '—'}\n- **Highlights**: ${d.highlights.join(', ') || '—'}\n${d.bestMonth ? `- **Best month**: ${d.bestMonth}` : ''}`),
-    structured.tips?.length ? `\n**Tips**\n- ${structured.tips.join('\n- ')}` : ''
+    ...structured.destinations.map((d) => {
+      const parts = [
+        `\n### ${d.name}, ${d.country}`,
+        `- **Why**: ${d.why || 'Great fit for your stated interests and weather prefs.'}`,
+        d.bestTimeToVisit ? `- **Best time to visit**: ${d.bestTimeToVisit}` : '',
+        `- **Weather**: ${d.weatherSummary || '—'}`,
+        d.flightPriceUsd ? `- **Flight estimate**: $${d.flightPriceUsd.toLocaleString()} roundtrip` : '',
+        `- **Est. total trip cost**: $${d.estCostUsd?.toLocaleString() || '—'}`,
+        d.hotels?.length ? `- **Hotel suggestions**:\n${d.hotels.map(h => `  - ${h.name} ($${h.pricePerNight}/night${h.rating ? `, ${h.rating}★` : ''}${h.type ? ` - ${h.type}` : ''})`).join('\n')}` : '',
+        `- **Highlights**: ${d.highlights.join(', ') || '—'}`,
+        d.culturalInsights?.length ? `- **Cultural insights**:\n${d.culturalInsights.map(ci => `  - ${ci}`).join('\n')}` : '',
+      ];
+      return parts.filter(Boolean).join('\n');
+    }),
+    structured.tips?.length ? `\n**General Travel Tips**\n- ${structured.tips.join('\n- ')}` : ''
   ].join('\n');
 
   return NextResponse.json({ json: structured, markdown: md });

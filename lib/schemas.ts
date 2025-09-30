@@ -21,9 +21,20 @@ export const recommendationSchema = z.object({
       name: z.string(),
       country: z.string(),
       bestMonth: z.string().optional(),
+      bestTimeToVisit: z.string().optional(),
       estCostUsd: z.number().optional(),
+      flightPriceUsd: z.number().optional(),
       weatherSummary: z.string().optional(),
       highlights: z.array(z.string()).default([]),
+      hotels: z.array(
+        z.object({
+          name: z.string(),
+          pricePerNight: z.number(),
+          rating: z.number().optional(),
+          type: z.string().optional(),
+        })
+      ).optional(),
+      culturalInsights: z.array(z.string()).optional(),
       why: z.string().optional(),
     })
   ),

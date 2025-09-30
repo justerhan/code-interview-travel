@@ -1,4 +1,5 @@
 export type LatLng = { lat: number; lng: number };
+export type Hotel = { name: string; pricePerNight: number; rating?: number; type?: string };
 
 const COORDS: Record<string, LatLng> = {
   'Lisbon, Portugal': { lat: 38.7223, lng: -9.1393 },
@@ -29,14 +30,73 @@ export async function getWeatherSummary(place: string, month?: string): Promise<
   }
 }
 
+export function estimateFlightPriceUSD(opts: {
+  origin?: string;
+  destination: string;
+  month?: string | null;
+}): number {
+  // Base roundtrip flight prices from US to European destinations
+  const basePrice = 700;
+  
+  // Seasonal multipliers
+  const peakMonths = ['june', 'july', 'august', 'december'];
+  const shoulderMonths = ['april', 'may', 'september', 'october'];
+  const monthLower = (opts.month || '').toLowerCase();
+  
+  let multiplier = 1.0; // off-season
+  if (peakMonths.some(m => monthLower.includes(m))) {
+    multiplier = 1.4; // peak season
+  } else if (shoulderMonths.some(m => monthLower.includes(m))) {
+    multiplier = 1.15; // shoulder season
+  }
+  
+  return Math.round(basePrice * multiplier);
+}
+
 export function estimateTripCostUSD(opts: {
   origin?: string;
   destination: string;
   durationDays?: number | null;
   comfort?: 'budget' | 'mid' | 'premium';
+  flightPrice?: number;
 }): number {
-  const baseFlight = 700; // crude EU roundtrip proxy
+  const flight = opts.flightPrice || 700;
   const nightly: Record<string, number> = { budget: 80, mid: 150, premium: 300 };
   const nights = Math.max(1, (opts.durationDays || 5) - 1);
-  return baseFlight + nights * (nightly[opts.comfort || 'mid']);
+  return flight + nights * (nightly[opts.comfort || 'mid']);
+}
+
+export function getHotelSuggestions(destination: string, comfort: 'budget' | 'mid' | 'premium' = 'mid') {
+  const hotelsByDestination: Record<string, any[]> = {
+    'Lisbon, Portugal': [
+      { name: 'My Story Hotel Rossio', pricePerNight: 120, rating: 4.3, type: 'Boutique Hotel' },
+      { name: 'Hotel Avenida Palace', pricePerNight: 180, rating: 4.5, type: 'Historic Luxury' },
+      { name: 'The Lumiares Hotel & Spa', pricePerNight: 250, rating: 4.7, type: 'Luxury Spa' },
+    ],
+    'Canary Islands, Spain': [
+      { name: 'Hotel Riu Palace Oasis', pricePerNight: 140, rating: 4.4, type: 'Beach Resort' },
+      { name: 'Seaside Grand Hotel Residencia', pricePerNight: 280, rating: 4.8, type: 'Luxury Resort' },
+      { name: 'Parque Tropical', pricePerNight: 95, rating: 4.1, type: 'Budget Beach Hotel' },
+    ],
+    'Crete, Greece': [
+      { name: 'Blue Palace Resort', pricePerNight: 320, rating: 4.8, type: 'Luxury Beach Resort' },
+      { name: 'Aquila Atlantis Hotel', pricePerNight: 150, rating: 4.3, type: 'City Hotel' },
+      { name: 'Olive Green Hotel', pricePerNight: 110, rating: 4.2, type: 'Eco-Friendly' },
+    ],
+    'Nice, France': [
+      { name: 'Hotel Negresco', pricePerNight: 350, rating: 4.6, type: 'Historic Luxury' },
+      { name: 'Hyatt Regency Nice Palais', pricePerNight: 200, rating: 4.5, type: 'Modern Luxury' },
+      { name: 'Hotel Aston La Scala', pricePerNight: 130, rating: 4.2, type: 'Mid-Range' },
+    ],
+  };
+
+  const hotels = hotelsByDestination[destination] || [];
+  
+  // Filter by comfort level
+  if (comfort === 'budget') {
+    return hotels.filter(h => h.pricePerNight < 150).slice(0, 2);
+  } else if (comfort === 'premium') {
+    return hotels.filter(h => h.pricePerNight > 200).slice(0, 2);
+  }
+  return hotels.filter(h => h.pricePerNight >= 100 && h.pricePerNight <= 250).slice(0, 2);
 }

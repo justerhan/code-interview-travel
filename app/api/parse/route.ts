@@ -5,7 +5,7 @@ import { parsedPreferencesSchema } from '@/lib/schemas';
 export const runtime = 'edge';
 
 export async function POST(req: NextRequest) {
-  const { text } = await req.json();
+  const { text, history } = await req.json();
   const sys = `You extract structured travel preferences from a short user message.
 Return ONLY JSON matching this schema:
 {
@@ -23,12 +23,18 @@ Rules:
 - month: map relative like 'next month' to a month name if possible, else keep original phrase
 - activities: split by commas/and phrases (adventure, food, hiking, museums, nightlife, beach, etc.)`;
 
+  // Build contextual message history (if provided)
+  const historyMessages = Array.isArray(history)
+    ? history.map((m: any) => ({ role: m.role as 'user' | 'assistant', content: m.content }))
+    : [];
+
   const completion = await openai.chat.completions.create({
     model: model().name,
     temperature: 0.2,
     response_format: { type: 'json_object' },
     messages: [
       { role: 'system', content: sys },
+      ...historyMessages,
       { role: 'user', content: text }
     ]
   });
