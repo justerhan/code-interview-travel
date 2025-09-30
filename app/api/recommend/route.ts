@@ -27,6 +27,20 @@ export async function POST(req: NextRequest) {
   const comfort = preferences.budgetUsd && preferences.budgetUsd < 1500 ? 'budget' : 
                   preferences.budgetUsd && preferences.budgetUsd > 3000 ? 'premium' : 'mid';
 
+  function funScoreFor(args: { place: string; weatherSummary?: string; activities?: (string | null)[] | null; hotels: { name: string; pricePerNight: number }[]; }): number {
+    let score = 70;
+    const w = (args.weatherSummary || '').toLowerCase();
+    if (/(warm|sunny|breeze|pleasant)/.test(w)) score += 8;
+    if (/(dry|low rain|limited rain)/.test(w)) score += 5;
+    if (/(rain|cold|cool)/.test(w)) score -= 6;
+    const acts = (args.activities || []).map(a => (a || '').toLowerCase());
+    if (acts.some(a => /(nightlife|party|bars|music)/.test(a))) score += 8;
+    if (acts.some(a => /(beach|swim|sun)/.test(a))) score += 6;
+    if (acts.some(a => /(hiking|adventure|boat|sailing)/.test(a))) score += 4;
+    if (args.hotels.some(h => h.pricePerNight > 250)) score += 2; // access to upscale venues
+    return Math.max(0, Math.min(100, Math.round(score)));
+  }
+
   const enriched = await Promise.all(
     picks.map(async (d) => {
       const place = `${d.name}, ${d.country}`;
@@ -40,7 +54,8 @@ export async function POST(req: NextRequest) {
         flightPrice 
       });
       const hotels = getHotelSuggestions(place, comfort);
-      return { place, weatherSummary, estCostUsd, flightPrice, hotels };
+      const funScore = funScoreFor({ place, weatherSummary, activities: preferences.activities || null, hotels });
+      return { place, weatherSummary, estCostUsd, flightPrice, hotels, funScore };
     })
   );
 
@@ -57,6 +72,7 @@ Output JSON ONLY with this schema:
       "flightPriceUsd"?: number,
       "weatherSummary"?: string, 
       "highlights": string[], 
+      "funScore"?: number,
       "culturalInsights"?: string[] (2-3 cultural tips, local customs, or insider knowledge),
       "why"?: string 
     }
@@ -65,10 +81,10 @@ Output JSON ONLY with this schema:
 }`;
 
   const facts = enriched.map((e, i) => 
-    `#${i+1} ${e.place} | flightUSD=${e.flightPrice} | totalCostUSD=${e.estCostUsd} | weather='${e.weatherSummary}' | hotels=${JSON.stringify(e.hotels)}`
+    `#${i+1} ${e.place} | flightUSD=${e.flightPrice} | totalCostUSD=${e.estCostUsd} | weather='${e.weatherSummary}' | fun=${e.funScore} | hotels=${JSON.stringify(e.hotels)}`
   ).join('\n');
   const lastUser = Array.isArray(history) ? [...history].reverse().find(m => m.role === 'user') : undefined;
-  type FollowUpMode = 'none' | 'climate' | 'costs' | 'flights' | 'hotels' | 'highlights' | 'tips';
+  type FollowUpMode = 'none' | 'climate' | 'costs' | 'flights' | 'hotels' | 'highlights' | 'tips' | 'fun';
   const classify = (content?: string): FollowUpMode => {
     if (!content) return 'none';
     const c = content.toLowerCase();
@@ -78,6 +94,7 @@ Output JSON ONLY with this schema:
     if (/(hotel|stay|accommodation)/i.test(c)) return 'hotels';
     if (/(highlight|what to do|things to do|must[- ]see|attraction)/i.test(c)) return 'highlights';
     if (/(tip|advice|insight|etiquette|safety)/i.test(c)) return 'tips';
+    if (/(fun|most fun|lively|vibe|party)/i.test(c)) return 'fun';
     return 'none';
   };
   const mode: FollowUpMode = classify(lastUser?.content);
@@ -88,7 +105,8 @@ Output JSON ONLY with this schema:
     flights: 'Return concise flight price per destination only.',
     hotels: 'Return 1-2 concise hotel suggestions (name + pricePerNight) per destination only.',
     highlights: 'Return 2-3 concise activity highlights per destination only.',
-    tips: 'Return 2-3 concise travel/cultural tips per destination only.'
+    tips: 'Return 2-3 concise travel/cultural tips per destination only.',
+    fun: 'Return concise fun rating per destination only (0-100).'
   };
   const user = `User preferences: ${JSON.stringify(preferences)}\n\nFacts to include exactly as given (do not alter numbers):\n${facts}\n\nTask: ${taskMap[mode]}`;
 
@@ -108,6 +126,7 @@ Output JSON ONLY with this schema:
         mode === 'hotels' ? '\nInstruction: If the latest user turn asks about hotels, reply minimally with 1-2 hotel suggestions (name and pricePerNight) per destination. Avoid flights, costs, weather, generic tips.' :
         mode === 'highlights' ? '\nInstruction: If the latest user turn asks about highlights, reply minimally with 2-3 short highlights per destination. Avoid flights, costs, hotels, tips.' :
         mode === 'tips' ? '\nInstruction: If the latest user turn asks for tips/advice, reply minimally with 2-3 short tips per destination. Avoid flights, costs, hotels, weather.' :
+        mode === 'fun' ? '\nInstruction: If the latest user turn asks which is most fun, reply minimally with funScore per destination (0-100) and a one-phrase reason. Rank descending.' :
         ''
       ) },
       ...historyMessages,
@@ -121,6 +140,14 @@ Output JSON ONLY with this schema:
   const md = (() => {
     const label = (d: any) => d.country ? `${d.name}, ${d.country}` : d.name;
     switch (mode) {
+      case 'fun':
+        return [
+          `**Fun rating (0–100)**`,
+          ...[...structured.destinations]
+            .map(d => ({ name: label(d), score: typeof d.funScore === 'number' ? d.funScore : undefined, why: d.why }))
+            .sort((a, b) => (b.score ?? -1) - (a.score ?? -1))
+            .map(x => `- ${x.name}: ${typeof x.score === 'number' ? x.score : '—'}${x.why ? ` — ${x.why}` : ''}`)
+        ].join('\n');
       case 'climate':
         return [
           `**Climate overview**`,

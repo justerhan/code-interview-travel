@@ -26,6 +26,7 @@ export const recommendationSchema = z.object({
       flightPriceUsd: z.number().optional(),
       weatherSummary: z.string().optional(),
       highlights: z.array(z.string()).default([]),
+      funScore: z.number().optional(),
       hotels: z.array(
         z.object({
           name: z.string(),
@@ -37,7 +38,7 @@ export const recommendationSchema = z.object({
       culturalInsights: z.array(z.string()).optional(),
       why: z.string().optional(),
     })
-  ),
+  ).default([]),
   tips: z.array(z.string()).optional(),
 });
 export type Recommendation = z.infer<typeof recommendationSchema>;
