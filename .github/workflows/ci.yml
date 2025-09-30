@@ -9,6 +9,10 @@ on:
 jobs:
   build-test:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [18, 20]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -16,20 +20,38 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
-          cache: 'npm'
+          node-version: ${{ matrix.node }}
+          # ⛔ remove cache: 'pnpm' here
+
+      - name: Install pnpm (with cache)
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+          run_install: false
+          cache: true                 # handles pnpm store caching for you
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
+
+      - name: Cache Next.js build
+        uses: actions/cache@v4
+        with:
+          path: .next/cache
+          key: ${{ runner.os }}-next-${{ matrix.node }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ hashFiles('next.config.*', 'app/**', 'components/**', 'lib/**') }}
+          restore-keys: |
+            ${{ runner.os }}-next-${{ matrix.node }}-
 
       - name: Typecheck
-        run: npm run typecheck --if-present
+        run: pnpm run typecheck
 
       - name: Lint
-        run: npm run lint --if-present
+        run: pnpm run lint
+
+      - name: Build
+        run: pnpm run build
 
       - name: Tests with coverage
-        run: npm run test:cov -- --run
+        run: pnpm run test:cov -- --run
 
       - name: Upload coverage artifact
         if: always()
