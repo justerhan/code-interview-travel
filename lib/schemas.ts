@@ -19,7 +19,7 @@ export const recommendationSchema = z.object({
   destinations: z.array(
     z.object({
       name: z.string(),
-      country: z.string(),
+      country: z.string().optional(),
       bestMonth: z.string().optional(),
       bestTimeToVisit: z.string().optional(),
       estCostUsd: z.number().optional(),
