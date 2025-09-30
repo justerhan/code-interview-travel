@@ -39,13 +39,15 @@ export default function Page() {
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-      <div className="md:col-span-2 space-y-4">
-        <h1 className="text-3xl font-bold">Travel Recommendation Assistant</h1>
-        <Chat messages={messages} onSubmitInput={onSubmitInput} loading={loading} />
-      </div>
-      <div className="md:col-span-1">
-        <PreferenceForm parsed={parsed} onSubmit={onSubmitInput} />
+    <div className="min-h-screen text-vapor-text p-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="md:col-span-2 space-y-4">
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-vapor-pink via-vapor-purple to-vapor-cyan inline-block text-transparent bg-clip-text neon-text-cyan">Travel Recommendation Assistant</h1>
+          <Chat messages={messages} onSubmitInput={onSubmitInput} loading={loading} />
+        </div>
+        <div className="md:col-span-1">
+          <PreferenceForm parsed={parsed} onSubmit={onSubmitInput} />
+        </div>
       </div>
     </div>
   );

@@ -20,7 +20,7 @@ export function Chat({
     let x = md;
     x = x.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
     x = x.replace(/\*(.+?)\*/g, '<em>$1</em>');
-    x = x.replace(/\[(.+?)\]\((https?:[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+    x = x.replace(/\[(.+?)\]\((https?:[^\s)]+)\)/g, '<a class="text-vapor-cyan hover:text-vapor-green underline" href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
     return x;
   }
   function markdownToHtml(markdown: string) {
@@ -102,19 +102,19 @@ export function Chat({
   }
 
   return (
-    <div className="border rounded-2xl p-4 bg-white dark:bg-zinc-900 shadow-sm">
+    <div className="border rounded-2xl p-4 bg-vapor-card border-vapor-purple/30 shadow-sm">
       <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
         {messages.map((m, i) => (
           <div key={i} className={m.role === 'user' ? 'text-right' : 'text-left'}>
             {m.role === 'assistant' ? (
-              <div className={'inline-block rounded-2xl px-3 py-2 bg-zinc-100 dark:bg-zinc-800 max-w-full text-left'}>
+              <div className={'inline-block rounded-2xl px-3 py-2 bg-vapor-card border border-vapor-purple/20 max-w-full text-left'}>
                 <div dangerouslySetInnerHTML={{ __html: markdownToHtml(m.content) }} />
               </div>
             ) : (
               <div
                 className={
                   'inline-block rounded-2xl px-3 py-2 whitespace-pre-wrap ' +
-                  (m.role === 'user' ? 'bg-blue-600 text-white' : 'bg-zinc-100 dark:bg-zinc-800')
+                  (m.role === 'user' ? 'bg-vapor-pink text-vapor-bg' : 'bg-vapor-card')
                 }
               >
                 {m.content}
@@ -122,7 +122,7 @@ export function Chat({
             )}
           </div>
         ))}
-        {loading && <div className="text-sm text-zinc-500">Thinking…</div>}
+        {loading && <div className="text-sm text-vapor-subtext">Thinking…</div>}
       </div>
       <form
         className="mt-3 flex gap-2"
@@ -134,14 +134,12 @@ export function Chat({
         }}
       >
         <input
-          className="flex-1 border rounded-xl px-3 py-2 bg-zinc-50 dark:bg-zinc-800"
+          className="flex-1 border border-vapor-purple/30 rounded-xl px-3 py-2 bg-[#1a1b36] text-vapor-text placeholder-vapor-subtext"
           placeholder="e.g. Somewhere warm in Europe next month under $2k"
           value={input}
           onChange={(e) => setInput(e.target.value)}
         />
-        <button className="px-4 py-2 rounded-xl bg-blue-600 text-white disabled:opacity-50" disabled={loading}>
-          Send
-        </button>
+        <button className="px-4 py-2 rounded-xl bg-vapor-cyan hover:bg-vapor-green text-vapor-bg transition-colors disabled:opacity-50" disabled={loading}>Send</button>
       </form>
     </div>
   );

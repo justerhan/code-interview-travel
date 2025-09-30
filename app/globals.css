@@ -4,3 +4,34 @@
 
 :root { color-scheme: light dark; }
 html, body, #__next { height: 100%; }
+
+/* Vaporwave gradient background with subtle grid overlay */
+.vapor-grid {
+  position: relative;
+  background-image:
+    radial-gradient(1200px 600px at 10% -10%, rgba(255, 113, 206, 0.25), transparent 60%),
+    radial-gradient(1000px 500px at 90% 0%, rgba(1, 205, 254, 0.18), transparent 60%),
+    radial-gradient(800px 400px at 50% 100%, rgba(185, 103, 255, 0.18), transparent 60%),
+    linear-gradient(180deg, rgba(11,12,26,1), rgba(11,12,26,0.98));
+}
+.vapor-grid::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px);
+  background-size: 24px 24px, 24px 24px;
+  mask-image: radial-gradient(circle at 50% 50%, rgba(0,0,0,0.6), rgba(0,0,0,0.95));
+}
+
+/* Neon glow utilities */
+.neon-glow-pink { box-shadow: 0 0 12px rgba(255, 113, 206, 0.45), 0 0 24px rgba(255, 113, 206, 0.25); }
+.neon-glow-cyan { box-shadow: 0 0 12px rgba(1, 205, 254, 0.45), 0 0 24px rgba(1, 205, 254, 0.25); }
+.neon-glow-purple { box-shadow: 0 0 12px rgba(185, 103, 255, 0.45), 0 0 24px rgba(185, 103, 255, 0.25); }
+
+/* Neon text shadows */
+.neon-text-cyan { text-shadow: 0 0 6px rgba(1, 205, 254, 0.6), 0 0 18px rgba(1, 205, 254, 0.35); }
+.neon-text-pink { text-shadow: 0 0 6px rgba(255, 113, 206, 0.6), 0 0 18px rgba(255, 113, 206, 0.35); }
+.neon-text-purple { text-shadow: 0 0 6px rgba(185, 103, 255, 0.6), 0 0 18px rgba(185, 103, 255, 0.35); }
