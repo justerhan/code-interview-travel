@@ -1,5 +1,6 @@
 'use client';
-import { useState } from 'react';
+import { useState, useRef } from 'react';
+import type { MouseEvent } from 'react';
 import { markdownToHtml } from '@/lib/format';
 import DOMPurify from 'dompurify';
 
@@ -19,9 +20,36 @@ export function Chat({
   onStop?: () => void;
 }) {
   const [input, setInput] = useState('');
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [preview, setPreview] = useState<{ visible: boolean; url: string; x: number; y: number }>({ visible: false, url: '', x: 0, y: 0 });
+
+  function isImageLikely(href: string): boolean {
+    const lower = href.toLowerCase();
+    return /(\.png|\.jpg|\.jpeg|\.webp|\.gif)(\?|$)/.test(lower) || lower.includes('picsum.photos');
+  }
+
+  function handleMouseMove(e: MouseEvent<HTMLDivElement>) {
+    const target = e.target as HTMLElement | null;
+    if (!target) return;
+    const a = target.closest('a') as HTMLAnchorElement | null;
+    if (a && a.href && isImageLikely(a.href)) {
+      const pad = 12;
+      let x = e.clientX + pad;
+      let y = e.clientY + pad;
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const maxW = 340;
+      const maxH = 220;
+      if (x + maxW + 24 > vw) x = Math.max(8, vw - maxW - 24);
+      if (y + maxH + 24 > vh) y = Math.max(8, vh - maxH - 24);
+      setPreview({ visible: true, url: a.href, x, y });
+    } else if (preview.visible) {
+      setPreview((p) => ({ ...p, visible: false }));
+    }
+  }
 
   return (
-    <div className="border rounded-2xl p-4 bg-vapor-card border-vapor-purple/30 shadow-sm">
+    <div className="border rounded-2xl p-4 bg-vapor-card border-vapor-purple/30 shadow-sm" ref={containerRef} onMouseMove={handleMouseMove} onMouseLeave={() => setPreview((p) => ({ ...p, visible: false }))}>
       <div className="mb-3 flex items-center justify-between">
         <div className="text-sm text-vapor-subtext">Assistant</div>
         <div className="flex items-center gap-3">
@@ -109,12 +137,36 @@ export function Chat({
         />
         <button
           className="px-4 py-2 rounded-xl bg-vapor-cyan hover:bg-vapor-green text-vapor-bg transition-colors disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-vapor-cyan focus:ring-offset-1 focus:ring-offset-vapor-bg"
-          aria-label="Send message"
           disabled={loading}
         >
           Send
         </button>
       </form>
+      {/* Hover image preview */}
+      {preview.visible && (
+        <div
+          className="img-hover-preview"
+          style={{
+            position: 'fixed',
+            left: preview.x,
+            top: preview.y,
+            zIndex: 50,
+            pointerEvents: 'none',
+            background: 'rgba(10,11,26,0.9)',
+            border: '1px solid rgba(185,103,255,0.35)',
+            borderRadius: 12,
+            boxShadow: '0 8px 24px rgba(0,0,0,0.35)',
+            padding: 6,
+          }}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={preview.url}
+            alt="Preview"
+            style={{ maxWidth: 340, maxHeight: 220, display: 'block', borderRadius: 8 }}
+          />
+        </div>
+      )}
     </div>
   );
 }

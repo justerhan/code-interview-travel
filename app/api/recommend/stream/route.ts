@@ -50,6 +50,10 @@ Context-handling directives (apply silently):
 - Use only provided facts; avoid fabrications.
 - Keep output concise and avoid repetition.
 
+Hyperlinks & media (when helpful):
+- Include useful Markdown links such as Google Flights and hotel search for the destination.
+- Occasionally embed a single tasteful image using Markdown (Lorem Picsum) for the first destination only.
+
 Meta self-check (internal only):
 1) Used history and preferences? 2) Avoided fabrications? 3) Output concise and mode-appropriate?
 
@@ -87,6 +91,7 @@ Tone directive: Adopt a ${tone} tone in phrasings while keeping facts unchanged.
   });
 
   const encoder = new TextEncoder();
+  const firstPlace = enriched[0]?.place;
   const recap = (() => {
     const toneLead = (() => {
       switch (tone) {
@@ -118,6 +123,13 @@ Tone directive: Adopt a ${tone} tone in phrasings while keeping facts unchanged.
         // Emit recap first for default mode only
         if (mode === 'none' && recap) {
           controller.enqueue(encoder.encode(recap));
+          // Opportunistic image and helpful links for the first destination
+          if (firstPlace) {
+            const enc = encodeURIComponent(firstPlace);
+            const img = `![${firstPlace}](https://picsum.photos/800/500/?${enc})\n`;
+            const links = `- **Helpful links**: [Google Flights](https://www.google.com/travel/flights?q=Flights%20to%20${enc}) · [Booking](https://www.booking.com/searchresults.html?ss=${enc}) · [Google Hotels](https://www.google.com/travel/hotels?dest=${enc})\n\n`;
+            controller.enqueue(encoder.encode(img + links));
+          }
         }
         for await (const part of completion) {
           const delta = part.choices?.[0]?.delta?.content;

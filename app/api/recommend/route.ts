@@ -265,16 +265,30 @@ Meta self-check (internal only; do not include in output):
           recap && `${recap}`,
           `**Top picks** (based on your prefs):`,
           ...structured.destinations.map((d) => {
+            const place = label(d);
+            const encPlace = encodeURIComponent(place);
+            const flightLink = `https://www.google.com/travel/flights?q=Flights%20to%20${encPlace}`;
+            const hotelsLinkBooking = `https://www.booking.com/searchresults.html?ss=${encPlace}`;
+            const hotelsLinkGoogle = `https://www.google.com/travel/hotels?dest=${encPlace}`;
+            const imageMd = structured.destinations[0] === d
+              ? `\n![${place}](https://picsum.photos/800/500/?${encodeURIComponent(place)})`
+              : '';
             const parts = [
-              `\n### ${label(d)}`,
+              `\n### ${place}`,
+              imageMd,
               `- **Why**: ${d.why || 'Great fit for your stated interests and weather prefs.'}`,
               d.bestTimeToVisit ? `- **Best time to visit**: ${d.bestTimeToVisit}` : '',
               `- **Weather**: ${d.weatherSummary || '—'}`,
               d.flightPriceUsd ? `- **Flight estimate**: $${d.flightPriceUsd.toLocaleString()} roundtrip` : '',
               `- **Est. total trip cost**: $${d.estCostUsd?.toLocaleString() || '—'}`,
-              d.hotels?.length ? `- **Hotel suggestions**:\n${d.hotels.map(h => `  - ${h.name} ($${h.pricePerNight}/night${h.rating ? `, ${h.rating}★` : ''}${h.type ? ` - ${h.type}` : ''})`).join('\n')}` : '',
+              d.hotels?.length ? `- **Hotel suggestions**:\n${d.hotels.map(h => {
+                const q = encodeURIComponent(`${h.name} ${place}`);
+                const href = `https://www.google.com/search?q=${q}`;
+                return `  - [${h.name}](${href}) ($${h.pricePerNight}/night${h.rating ? `, ${h.rating}★` : ''}${h.type ? ` - ${h.type}` : ''})`;
+              }).join('\n')}` : '',
               `- **Highlights**: ${d.highlights.join(', ') || '—'}`,
               d.culturalInsights?.length ? `- **Cultural insights**:\n${d.culturalInsights.map(ci => `  - ${ci}`).join('\n')}` : '',
+              `- **Helpful links**: [Google Flights](${flightLink}) · [Booking](${hotelsLinkBooking}) · [Google Hotels](${hotelsLinkGoogle})`,
             ];
             return parts.filter(Boolean).join('\n');
           }),
