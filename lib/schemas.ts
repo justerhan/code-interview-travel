@@ -1,0 +1,32 @@
+import { z } from 'zod';
+
+export const parsedPreferencesSchema = z.object({
+  region: z.string().nullable().optional(),
+  destinationType: z.string().nullable().optional(),
+  budgetUsd: z.number().nullable().optional(),
+  durationDays: z.number().nullable().optional(),
+  month: z.string().nullable().optional(),
+  dates: z
+    .object({ start: z.string().optional(), end: z.string().optional() })
+    .nullable()
+    .optional(),
+  activities: z.array(z.string()).nullable().optional(),
+  weather: z.string().nullable().optional(),
+});
+export type ParsedPreferences = z.infer<typeof parsedPreferencesSchema>;
+
+export const recommendationSchema = z.object({
+  destinations: z.array(
+    z.object({
+      name: z.string(),
+      country: z.string(),
+      bestMonth: z.string().optional(),
+      estCostUsd: z.number().optional(),
+      weatherSummary: z.string().optional(),
+      highlights: z.array(z.string()).default([]),
+      why: z.string().optional(),
+    })
+  ),
+  tips: z.array(z.string()).optional(),
+});
+export type Recommendation = z.infer<typeof recommendationSchema>;
