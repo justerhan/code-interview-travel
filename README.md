@@ -134,3 +134,6 @@ Before generating recommendations, the client performs a quick completeness chec
 - **Images not showing**: Network/extension may block `picsum.photos`. Replace with your own CDN or disable images in the API code. TODO Should me moved into env.local as config
 - **TODO Tone not persisting**: Verify `localStorage.travel.form` and `localStorage.travel.tone` update when the Tone dropdown changes. Use Reset Session to clear and re-select.
 - **Tests fail to find vitest**: Make sure deps are installed (`pnpm i`) and run `pnpm test`. For watch mode, use `pnpm test:watch`.
+
+### Note on Github Actions and CI
+Tests currently fail, they should pass if I pass in OpenAI API key's but I don't want to tie it to a public repo even if they are passed in as secrets.
