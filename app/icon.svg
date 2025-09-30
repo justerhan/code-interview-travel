@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <defs>
+    <linearGradient id="grad-sky" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0b0c1a"/>
+      <stop offset="100%" stop-color="#141527"/>
+    </linearGradient>
+    <radialGradient id="grad-sun" cx="50%" cy="50%" r="60%">
+      <stop offset="0%" stop-color="#ff71ce"/>
+      <stop offset="60%" stop-color="#b967ff"/>
+      <stop offset="100%" stop-color="#01cdfe"/>
+    </radialGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="6" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <linearGradient id="grad-neon" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#01cdfe"/>
+      <stop offset="100%" stop-color="#ff71ce"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="256" height="256" fill="url(#grad-sky)"/>
+
+  <!-- Grid -->
+  <g opacity="0.12">
+    <g stroke="#eaeafc" stroke-width="1">
+      <!-- vertical lines -->
+      <path d="M16,0 V256"/>
+      <path d="M32,0 V256"/>
+      <path d="M48,0 V256"/>
+      <path d="M64,0 V256"/>
+      <path d="M80,0 V256"/>
+      <path d="M96,0 V256"/>
+      <path d="M112,0 V256"/>
+      <path d="M128,0 V256"/>
+      <path d="M144,0 V256"/>
+      <path d="M160,0 V256"/>
+      <path d="M176,0 V256"/>
+      <path d="M192,0 V256"/>
+      <path d="M208,0 V256"/>
+      <path d="M224,0 V256"/>
+      <path d="M240,0 V256"/>
+      <!-- horizontal lines -->
+      <path d="M0,16 H256"/>
+      <path d="M0,32 H256"/>
+      <path d="M0,48 H256"/>
+      <path d="M0,64 H256"/>
+      <path d="M0,80 H256"/>
+      <path d="M0,96 H256"/>
+      <path d="M0,112 H256"/>
+      <path d="M0,128 H256"/>
+      <path d="M0,144 H256"/>
+      <path d="M0,160 H256"/>
+      <path d="M0,176 H256"/>
+      <path d="M0,192 H256"/>
+      <path d="M0,208 H256"/>
+      <path d="M0,224 H256"/>
+      <path d="M0,240 H256"/>
+    </g>
+  </g>
+
+  <!-- Vaporwave sun -->
+  <g filter="url(#glow)">
+    <circle cx="128" cy="112" r="56" fill="url(#grad-sun)"/>
+    <!-- scanlines across the sun -->
+    <g stroke="#0b0c1a" stroke-width="4" opacity="0.35">
+      <path d="M72,96 H184"/>
+      <path d="M72,108 H184"/>
+      <path d="M72,120 H184"/>
+      <path d="M80,132 H176"/>
+      <path d="M88,144 H168"/>
+    </g>
+  </g>
+
+  <!-- Vaporwave airplane centered -->
+  <g transform="translate(0,0)" filter="url(#glow)">
+    <!-- Neon outline -->
+    <path d="M128 110 l54 20 -54 20 -24 -9 -28 18 -10 -4 22 -26 -22 -26 10 -4 28 18z" fill="none" stroke="url(#grad-neon)" stroke-width="6" stroke-linejoin="round" stroke-linecap="round" opacity="0.9"/>
+    <!-- Body fill -->
+    <path d="M128 110 l54 20 -54 20 -24 -9 -28 18 -10 -4 22 -26 -22 -26 10 -4 28 18z" fill="#eaeafc" opacity="0.9"/>
+  </g>
+</svg>
