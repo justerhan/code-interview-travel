@@ -2,8 +2,9 @@ export type FollowUpMode = 'none' | 'climate' | 'costs' | 'flights' | 'hotels' |
 
 const patterns: Array<{ mode: FollowUpMode; re: RegExp }> = [
   { mode: 'climate', re: /(climate|weather|temperature)/i },
-  { mode: 'costs', re: /(cost|price|budget|how much|estimate)/i },
+  // Check flights before costs so phrases like "flight prices" classify as flights
   { mode: 'flights', re: /(flight|airfare|plane|airline)/i },
+  { mode: 'costs', re: /(cost|price|budget|how much|estimate)/i },
   { mode: 'hotels', re: /(hotel|stay|accommodation)/i },
   { mode: 'highlights', re: /(highlight|what to do|things to do|must[- ]see|attraction|activities|best activities)/i },
   { mode: 'tips', re: /(tip|advice|insight|etiquette|safety)/i },
