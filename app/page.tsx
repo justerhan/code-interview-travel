@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { PreferenceForm } from '@/components/PreferenceForm';
 import { Chat } from '@/components/Chat';
+import { MIN_MISSING_GROUPS } from '@/lib/config';
 import { type ParsedPreferences, parsedPreferencesSchema } from '@/lib/schemas';
 
 export default function Page() {
@@ -98,8 +99,8 @@ export default function Page() {
       if (!parsedPref.region && !parsedPref.destinationType) missing.push('region or destination type');
       if (!parsedPref.month) missing.push('target month');
       if (parsedPref.budgetUsd == null && parsedPref.durationDays == null) missing.push('budget or trip length');
-      // Ask only when all three critical groups are missing
-      if (missing.length >= 3) {
+      // Ask only when threshold of missing groups is reached
+      if (missing.length >= MIN_MISSING_GROUPS) {
         const q = `Quick check: could you share your ${missing.join(', ')}?`;
         setMessages((m) => [...m, { role: 'assistant', content: q }]);
         return;
