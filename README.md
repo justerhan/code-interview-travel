@@ -119,21 +119,6 @@ Before generating recommendations, the client performs a quick completeness chec
 - **Threshold to ask**
   - The app asks a clarifying question only when **all three groups are missing** (i.e., 3/3 missing). Otherwise, it proceeds to recommendations to avoid over‑prompting.
 
-Code excerpt from `app/page.tsx`:
-```ts
-// Clarifying question step: if critical fields are missing, ask succinctly and skip recommend for now
-const missing: string[] = [];
-if (!parsedPref.region && !parsedPref.destinationType) missing.push('region or destination type');
-if (!parsedPref.month) missing.push('target month');
-if (parsedPref.budgetUsd == null && parsedPref.durationDays == null) missing.push('budget or trip length');
-// Ask only when all three critical groups are missing
-if (missing.length >= 3) {
-  const q = `Quick check: could you share your ${missing.join(', ')}?`;
-  setMessages((m) => [...m, { role: 'assistant', content: q }]);
-  return; // skip recommend for this turn
-}
-```
-
 ### Customizing the threshold
 - Configurable via env and `lib/config.ts`:
   - Set `NEXT_PUBLIC_MIN_MISSING_GROUPS` in `.env.local` (1..3). Defaults to 3.
