@@ -50,7 +50,7 @@ export function Chat({
           <div key={i} className={m.role === 'user' ? 'text-right' : 'text-left'}>
             {m.role === 'assistant' ? (
               <div className={'inline-block rounded-2xl px-3 py-2 bg-vapor-card border border-vapor-purple/20 max-w-full text-left'}>
-                <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(markdownToHtml(m.content)) }} />
+                <div className="chat-content" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(markdownToHtml(m.content)) }} />
               </div>
             ) : (
               <div

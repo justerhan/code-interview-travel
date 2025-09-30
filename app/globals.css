@@ -35,3 +35,27 @@ html, body, #__next { height: 100%; }
 .neon-text-cyan { text-shadow: 0 0 6px rgba(1, 205, 254, 0.6), 0 0 18px rgba(1, 205, 254, 0.35); }
 .neon-text-pink { text-shadow: 0 0 6px rgba(255, 113, 206, 0.6), 0 0 18px rgba(255, 113, 206, 0.35); }
 .neon-text-purple { text-shadow: 0 0 6px rgba(185, 103, 255, 0.6), 0 0 18px rgba(185, 103, 255, 0.35); }
+
+/* Chat content overrides: ensure list padding survives resets */
+.chat-content ul,
+.chat-content ol {
+  padding-left: 1.25rem !important; /* ~pl-5 */
+  list-style: disc outside;
+}
+.chat-content li { padding-left: 0.25rem !important; /* ~pl-1 */ }
+.chat-content li > ul,
+.chat-content li > ol { padding-left: 1.25rem !important; }
+
+/* Chat content heading hierarchy */
+.chat-content h1 {
+  font-size: 1.25rem;  /* ~text-xl */
+  line-height: 1.6;
+  font-weight: 700;
+  margin: 0.5rem 0 0.25rem;
+}
+.chat-content h2 {
+  font-size: 1.125rem; /* ~text-lg */
+  line-height: 1.6;
+  font-weight: 700;
+  margin: 0.5rem 0 0.25rem;
+}
