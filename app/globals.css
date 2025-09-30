@@ -42,6 +42,8 @@ html, body, #__next { height: 100%; }
   padding-left: 1.25rem !important; /* ~pl-5 */
   list-style: disc outside;
 }
+.chat-content ul { margin: 0.5rem 0; }
+.chat-content ol { margin: 0.5rem 0; list-style: decimal outside; }
 .chat-content li { padding-left: 0.25rem !important; /* ~pl-1 */ }
 .chat-content li > ul,
 .chat-content li > ol { padding-left: 1.25rem !important; }
@@ -59,3 +61,72 @@ html, body, #__next { height: 100%; }
   font-weight: 700;
   margin: 0.5rem 0 0.25rem;
 }
+.chat-content h3 {
+  font-size: 1rem; /* ~text-base */
+  line-height: 1.6;
+  font-weight: 700;
+  margin: 0.5rem 0 0.25rem;
+}
+.chat-content h4,
+.chat-content h5,
+.chat-content h6 {
+  font-size: 0.95rem; /* slightly smaller */
+  line-height: 1.6;
+  font-weight: 600;
+  margin: 0.5rem 0 0.25rem;
+}
+
+/* Paragraphs and general text spacing */
+.chat-content p { margin: 0.5rem 0; }
+
+/* Horizontal rule */
+.chat-content hr {
+  border: 0;
+  border-top: 1px solid rgba(185, 103, 255, 0.2);
+  margin: 0.75rem 0;
+}
+
+/* Blockquotes */
+.chat-content blockquote {
+  border-left: 3px solid rgba(1, 205, 254, 0.5);
+  padding: 0.25rem 0 0.25rem 0.75rem;
+  margin: 0.5rem 0;
+  color: #c9cbe5;
+  background: rgba(26, 27, 54, 0.6);
+}
+
+/* Inline code */
+.chat-content :not(pre) > code {
+  background: rgba(1, 205, 254, 0.12);
+  color: #aee8ff;
+  padding: 0.1rem 0.35rem;
+  border-radius: 0.35rem;
+  border: 1px solid rgba(1, 205, 254, 0.25);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 0.85em;
+}
+
+/* Code blocks */
+.chat-content pre {
+  background: #121330;
+  border: 1px solid rgba(185, 103, 255, 0.25);
+  border-radius: 0.75rem;
+  padding: 0.75rem 0.9rem;
+  overflow-x: auto;
+  margin: 0.5rem 0;
+}
+.chat-content pre code {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  color: #e6e7ff;
+}
+
+/* Links */
+.chat-content a { color: #7be0ff; text-decoration: underline; text-decoration-color: rgba(123,224,255,0.5); }
+.chat-content a:hover { color: #9af0ff; }
+
+/* Tables */
+.chat-content table { width: 100%; border-collapse: collapse; margin: 0.5rem 0; }
+.chat-content th, .chat-content td { border: 1px solid rgba(185,103,255,0.25); padding: 0.4rem 0.5rem; }
+.chat-content th { background: rgba(185,103,255,0.15); text-align: left; }

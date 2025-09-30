@@ -45,26 +45,51 @@ export function Chat({
           </button>
         </div>
       </div>
-      <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1" aria-live="polite" role="log">
-        {messages.map((m, i) => (
-          <div key={i} className={m.role === 'user' ? 'text-right' : 'text-left'}>
-            {m.role === 'assistant' ? (
-              <div className={'inline-block rounded-2xl px-3 py-2 bg-vapor-card border border-vapor-purple/20 max-w-full text-left'}>
-                <div className="chat-content" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(markdownToHtml(m.content)) }} />
-              </div>
-            ) : (
+      <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1" aria-live="polite" role="log">
+        {messages.map((m, i) => {
+          const isUser = m.role === 'user';
+          return (
+            <div
+              key={i}
+              className={`flex w-full ${isUser ? 'justify-end' : 'justify-start'}`}
+              aria-label={isUser ? 'User message' : 'Assistant message'}
+            >
+              {/* Avatar/Badge */}
+              {!isUser && (
+                <div className="mr-2 mt-1 hidden sm:flex items-start">
+                  <div className="h-7 w-7 rounded-full bg-vapor-cyan/20 border border-vapor-cyan/30 text-vapor-cyan flex items-center justify-center text-[10px] font-semibold select-none">
+                    AI
+                  </div>
+                </div>
+              )}
               <div
                 className={
-                  'inline-block rounded-2xl px-3 py-2 whitespace-pre-wrap ' +
-                  (m.role === 'user' ? 'bg-vapor-pink text-vapor-bg' : 'bg-vapor-card')
+                  'max-w-[min(800px,90%)] rounded-2xl px-4 py-3 shadow-sm ' +
+                  (isUser
+                    ? 'bg-vapor-pink text-vapor-bg neon-glow-pink'
+                    : 'bg-[#1a1b36] text-vapor-text border border-vapor-purple/25')
                 }
               >
-                {m.content}
+                {isUser ? (
+                  <div className="whitespace-pre-wrap leading-relaxed">{m.content}</div>
+                ) : (
+                  <div className="chat-content leading-relaxed" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(markdownToHtml(m.content)) }} />
+                )}
               </div>
-            )}
-          </div>
-        ))}
-        {loading && <div className="text-sm text-vapor-subtext">Thinking…</div>}
+              {/* User badge for large screens (symmetry) */}
+              {isUser && (
+                <div className="ml-2 mt-1 hidden sm:flex items-start">
+                  <div className="h-7 w-7 rounded-full bg-vapor-pink/20 border border-vapor-pink/30 text-vapor-pink flex items-center justify-center text-[10px] font-semibold select-none">
+                    You
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+        {loading && (
+          <div className="text-sm text-vapor-subtext pl-9">Thinking…</div>
+        )}
       </div>
       <form
         className="mt-3 flex gap-2"
@@ -82,7 +107,13 @@ export function Chat({
           value={input}
           onChange={(e) => setInput(e.target.value)}
         />
-        <button className="px-4 py-2 rounded-xl bg-vapor-cyan hover:bg-vapor-green text-vapor-bg transition-colors disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-vapor-cyan focus:ring-offset-1 focus:ring-offset-vapor-bg" aria-label="Send message" disabled={loading}>Send</button>
+        <button
+          className="px-4 py-2 rounded-xl bg-vapor-cyan hover:bg-vapor-green text-vapor-bg transition-colors disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-vapor-cyan focus:ring-offset-1 focus:ring-offset-vapor-bg"
+          aria-label="Send message"
+          disabled={loading}
+        >
+          Send
+        </button>
       </form>
     </div>
   );
