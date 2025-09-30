@@ -92,7 +92,7 @@ Output JSON ONLY with this schema:
     if (/(cost|price|budget|how much|estimate)/i.test(c)) return 'costs';
     if (/(flight|airfare|plane|airline)/i.test(c)) return 'flights';
     if (/(hotel|stay|accommodation)/i.test(c)) return 'hotels';
-    if (/(highlight|what to do|things to do|must[- ]see|attraction)/i.test(c)) return 'highlights';
+    if (/(highlight|what to do|things to do|must[- ]see|attraction|activities|best activities)/i.test(c)) return 'highlights';
     if (/(tip|advice|insight|etiquette|safety)/i.test(c)) return 'tips';
     if (/(fun|most fun|lively|vibe|party)/i.test(c)) return 'fun';
     return 'none';
@@ -139,6 +139,17 @@ Output JSON ONLY with this schema:
 
   const md = (() => {
     const label = (d: any) => d.country ? `${d.name}, ${d.country}` : d.name;
+    const aggregateActivities = mode === 'highlights' && /\b(best|top)\b/i.test(lastUser?.content || '');
+    const aggregatedActivities: string[] = aggregateActivities
+      ? Array.from(
+          new Set(
+            (structured.destinations || [])
+              .flatMap(d => (d.highlights || []))
+              .map(s => (s || '').trim())
+              .filter(Boolean)
+          )
+        ).slice(0, 15)
+      : [];
     switch (mode) {
       case 'fun':
         return [
@@ -175,6 +186,12 @@ Output JSON ONLY with this schema:
           }),
         ].join('\n');
       case 'highlights':
+        if (aggregateActivities) {
+          return [
+            `**Best activities**`,
+            ...aggregatedActivities.map(a => `- ${a}`)
+          ].join('\n');
+        }
         return [
           `**Activity highlights**`,
           ...structured.destinations.map((d) => `- ${label(d)}: ${(d.highlights || []).slice(0,3).join(', ') || '—'}`),
