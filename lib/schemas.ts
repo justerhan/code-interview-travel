@@ -27,6 +27,7 @@ export const recommendationSchema = z.object({
       weatherSummary: z.string().optional(),
       highlights: z.array(z.string()).default([]),
       funScore: z.number().optional(),
+      foodScore: z.number().optional(),
       hotels: z.array(
         z.object({
           name: z.string(),
