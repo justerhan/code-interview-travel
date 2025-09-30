@@ -1,8 +1,8 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { type ParsedPreferences } from '@/lib/schemas';
 
-export function PreferenceForm({ parsed, onSubmit }: { parsed: ParsedPreferences | null; onSubmit: (t: string) => void }) {
+export function PreferenceForm({ parsed, onSubmit, resetSignal, tone, onToneChange }: { parsed: ParsedPreferences | null; onSubmit: (t: string) => void; resetSignal?: number; tone?: string; onToneChange?: (t: string) => void }) {
   const [manual, setManual] = useState({
     region: '',
     budgetUsd: '',
@@ -10,7 +10,47 @@ export function PreferenceForm({ parsed, onSubmit }: { parsed: ParsedPreferences
     month: '',
     activities: '',
     weather: '',
+    tone: 'surfer',
   });
+
+  // Hydrate from localStorage and external tone prop
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('travel.form');
+      if (raw) {
+        const obj = JSON.parse(raw);
+        if (obj && typeof obj === 'object') {
+          setManual((prev) => ({ ...prev, ...obj }));
+        }
+      }
+    } catch {}
+    if (tone && typeof tone === 'string') {
+      setManual((prev) => ({ ...prev, tone }));
+    }
+  }, []);
+
+  // Persist changes
+  useEffect(() => {
+    try {
+      localStorage.setItem('travel.form', JSON.stringify(manual));
+    } catch {}
+  }, [manual]);
+
+  // Keep manual.tone in sync if the tone prop changes after mount (e.g., hydration completes later)
+  useEffect(() => {
+    if (typeof tone === 'string' && tone && manual.tone !== tone) {
+      setManual((prev) => ({ ...prev, tone }));
+    }
+  }, [tone]);
+
+  // External reset support
+  useEffect(() => {
+    if (typeof resetSignal === 'number') {
+      setManual({ region: '', budgetUsd: '', durationDays: '', month: '', activities: '', weather: '', tone: 'surfer' });
+      try { localStorage.removeItem('travel.form'); } catch {}
+      onToneChange?.('surfer');
+    }
+  }, [resetSignal]);
 
   return (
     <div className="border rounded-2xl p-4 bg-vapor-card border-vapor-purple/30 shadow-sm space-y-3">
@@ -29,6 +69,24 @@ export function PreferenceForm({ parsed, onSubmit }: { parsed: ParsedPreferences
         <input className="border border-vapor-purple/30 rounded-xl px-3 py-2 bg-[#1a1b36] text-vapor-text placeholder-vapor-subtext" placeholder="Target month (e.g., May)" value={manual.month} onChange={(e) => setManual({ ...manual, month: e.target.value })} />
         <input className="border border-vapor-purple/30 rounded-xl px-3 py-2 bg-[#1a1b36] text-vapor-text placeholder-vapor-subtext" placeholder="Activities (e.g., hiking, food)" value={manual.activities} onChange={(e) => setManual({ ...manual, activities: e.target.value })} />
         <input className="border border-vapor-purple/30 rounded-xl px-3 py-2 bg-[#1a1b36] text-vapor-text placeholder-vapor-subtext" placeholder="Weather (e.g., warm, dry)" value={manual.weather} onChange={(e) => setManual({ ...manual, weather: e.target.value })} />
+        <div className="flex items-center gap-2 text-sm">
+          <label className="text-vapor-subtext w-20">Tone</label>
+          <select
+            className="flex-1 border border-vapor-purple/30 rounded-xl px-3 py-2 bg-[#1a1b36] text-vapor-text"
+            value={manual.tone}
+            onChange={(e) => { setManual({ ...manual, tone: e.target.value }); onToneChange?.(e.target.value); }}
+          >
+            <option value="surfer">Surfer (default)</option>
+            <option value="friendly">Friendly</option>
+            <option value="formal">Formal</option>
+            <option value="concise">Concise</option>
+            <option value="enthusiastic">Enthusiastic</option>
+            <option value="luxury">Luxury editorial</option>
+            <option value="adventure">Adventure guide</option>
+            <option value="90s-daria">90s Daria</option>
+            <option value="hank-hill">Hank Hill</option>
+          </select>
+        </div>
       </div>
       <button
         className="w-full px-4 py-2 rounded-xl bg-vapor-cyan hover:bg-vapor-green text-vapor-bg transition-colors"

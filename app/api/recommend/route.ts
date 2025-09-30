@@ -23,7 +23,8 @@ function candidateDestinations(pref: ParsedPreferences) {
 }
 
 export async function POST(req: NextRequest) {
-  const { preferences, history } = (await req.json()) as { preferences: ParsedPreferences; history?: { role: 'user' | 'assistant'; content: string }[] };
+  const { preferences, history, tone: toneRaw } = (await req.json()) as { preferences: ParsedPreferences; history?: { role: 'user' | 'assistant'; content: string }[]; tone?: string };
+  const tone = (String(toneRaw || 'surfer') || 'surfer').toLowerCase();
   const picks = candidateDestinations(preferences);
 
   const comfort = preferences.budgetUsd && preferences.budgetUsd < 1500 ? 'budget' : 
@@ -90,7 +91,17 @@ Output JSON ONLY with this schema:
     }
   ],
   "tips"?: string[] (general travel tips for the region)
-}`;
+}
+
+Context-handling directives (apply silently without changing output shape):
+- Always read and consider the full conversation history provided.
+- If the user refers to earlier context (e.g., "that idea"), resolve it using prior messages.
+- If context is ambiguous or missing, ask briefly for clarification in a follow-up turn; for this turn, keep outputs constrained to known facts.
+- Retain important details (names, preferences, goals) when generating reasoning, but only output fields defined by the schema.
+- Keep responses concise and avoid repetition.
+
+Meta self-check (internal only; do not include in output):
+1) Did you use history and user preferences? 2) Did you avoid fabricating facts not in 'facts'? 3) Is the JSON valid and minimal for the requested mode?`;
 
   const facts = enriched.map((e, i) => 
     `#${i+1} ${e.place} | flightUSD=${e.flightPrice} | totalCostUSD=${e.estCostUsd} | weather='${e.weatherSummary}' | fun=${e.funScore} | food=${e.foodScore} | hotels=${JSON.stringify(e.hotels)}`
@@ -118,7 +129,7 @@ Output JSON ONLY with this schema:
         mode === 'fun' ? '\nInstruction: If the latest user turn asks which is most fun, reply minimally with funScore per destination (0-100) and a one-phrase reason. Rank descending.' :
         mode === 'food' ? '\nInstruction: If the latest user turn asks which has the best food, reply minimally with foodScore per destination (0-100) and a one-phrase cuisine reason. Rank descending.' :
         ''
-      ) },
+      ) + `\nTone directive: Adopt a ${tone} tone in phrasings while keeping facts unchanged and schema-respecting. Examples — surfer: chill, upbeat, a bit playful; friendly: warm, approachable; formal: professional, neutral; concise: brief, to the point; enthusiastic: energetic, positive; luxury: refined, polished; adventure: bold, outdoorsy; 90s-daria: dry, sardonic, deadpan, a little over it; avoid exclamation points; hank-hill: polite Texan, plainspoken, mentions practicality.` },
       ...historyMessages,
       { role: 'user', content: user }
     ]
@@ -151,6 +162,33 @@ Output JSON ONLY with this schema:
   });
 
   const md = (() => {
+    const recap = (() => {
+      const toneLead = (() => {
+        switch (tone) {
+          case 'surfer': return "Stoked for your trip —";
+          case 'friendly': return "Great plan —";
+          case 'formal': return "Summary —";
+          case 'concise': return "Summary —";
+          case 'enthusiastic': return "Awesome —";
+          default: return "Summary —";
+        }
+      })();
+      const bits: string[] = [];
+      if (preferences.destinationType && preferences.region) {
+        bits.push(`you're aiming for a ${preferences.destinationType.toLowerCase()} vibe in ${preferences.region}`);
+      } else if (preferences.region) {
+        bits.push(`you're considering ${preferences.region}`);
+      } else if (preferences.destinationType) {
+        bits.push(`you'd like a ${preferences.destinationType.toLowerCase()} destination`);
+      }
+      if (preferences.month) bits.push(`around ${preferences.month}`);
+      if (typeof preferences.durationDays === 'number') bits.push(`for about ${preferences.durationDays} day${preferences.durationDays === 1 ? '' : 's'}`);
+      if (typeof preferences.budgetUsd === 'number') bits.push(`with a total budget near $${preferences.budgetUsd.toLocaleString()}`);
+      if (preferences.activities?.length) bits.push(`and you're into ${preferences.activities.slice(0, 3).join(', ')}`);
+      if (!bits.length) return '';
+      const base = `${toneLead} ${bits.join(', ')}. Here are tailored picks:`;
+      return tone === '90s-daria' ? `${base} (try to contain your excitement)` : base;
+    })();
     const label = (d: Recommendation['destinations'][number]) => d.country ? `${d.name}, ${d.country}` : d.name;
     const aggregateActivities = mode === 'highlights' && /\b(best|top)\b/i.test(lastUser?.content || '');
     const aggregatedActivities: string[] = aggregateActivities
@@ -224,6 +262,7 @@ Output JSON ONLY with this schema:
         ].join('\n');
       default:
         return [
+          recap && `${recap}`,
           `**Top picks** (based on your prefs):`,
           ...structured.destinations.map((d) => {
             const parts = [

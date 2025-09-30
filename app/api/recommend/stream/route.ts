@@ -22,7 +22,8 @@ function candidateDestinations(pref: ParsedPreferences) {
 }
 
 export async function POST(req: NextRequest) {
-  const { preferences, history } = (await req.json()) as { preferences: ParsedPreferences; history?: { role: 'user' | 'assistant'; content: string }[] };
+  const { preferences, history, tone: toneRaw } = (await req.json()) as { preferences: ParsedPreferences; history?: { role: 'user' | 'assistant'; content: string }[]; tone?: string };
+  const tone = (String(toneRaw || 'surfer') || 'surfer').toLowerCase();
   const picks = candidateDestinations(preferences);
 
   const comfort = preferences.budgetUsd && preferences.budgetUsd < 1500 ? 'budget' : 
@@ -40,7 +41,19 @@ export async function POST(req: NextRequest) {
     })
   );
 
-  const sys = `You are a knowledgeable travel recommender. Respond in concise Markdown only (no JSON).`;
+  const sys = `You are a knowledgeable travel recommender. Respond in concise Markdown only (no JSON).
+
+Context-handling directives (apply silently):
+- Always consider the full conversation history provided.
+- If the user refers to earlier context, resolve with prior messages.
+- If context is ambiguous/missing, keep this turn concise and avoid guessing.
+- Use only provided facts; avoid fabrications.
+- Keep output concise and avoid repetition.
+
+Meta self-check (internal only):
+1) Used history and preferences? 2) Avoided fabrications? 3) Output concise and mode-appropriate?
+
+Tone directive: Adopt a ${tone} tone in phrasings while keeping facts unchanged. Examples — surfer: chill, upbeat, a bit playful; friendly: warm, approachable; formal: professional, neutral; concise: brief; enthusiastic: energetic.`;
   const facts = enriched.map((e, i) => 
     `#${i+1} ${e.place} | flightUSD=${e.flightPrice} | totalCostUSD=${e.estCostUsd} | weather='${e.weatherSummary}' | hotels=${JSON.stringify(e.hotels)}`
   ).join('\n');
@@ -57,16 +70,55 @@ export async function POST(req: NextRequest) {
     temperature: 0.4,
     stream: true,
     messages: [
-      { role: 'system', content: sys },
+      { role: 'system', content: sys + (
+        mode === 'climate' ? '\nInstruction: If the latest user turn asks about climate/weather, reply minimally with weatherSummary per destination; avoid flights/costs/hotels/tips.' :
+        mode === 'costs' ? '\nInstruction: If the latest user turn asks about cost/budget, reply minimally with estCostUsd per destination; avoid flights/hotels/weather/tips.' :
+        mode === 'flights' ? '\nInstruction: If the latest user turn asks about flights, reply minimally with flightPriceUsd per destination; avoid costs/hotels/weather/tips.' :
+        mode === 'hotels' ? '\nInstruction: If the latest user turn asks about hotels, reply minimally with 1-2 hotel suggestions (name and pricePerNight) per destination; avoid flights/costs/weather/generic tips.' :
+        mode === 'highlights' ? '\nInstruction: If the latest user turn asks about highlights, reply minimally with 2-3 short highlights per destination; avoid flights/costs/hotels/tips.' :
+        mode === 'tips' ? '\nInstruction: If the latest user turn asks for tips/advice, reply minimally with 2-3 short tips per destination; avoid flights/costs/hotels/weather.' :
+        mode === 'fun' ? '\nInstruction: If the latest user turn asks which is most fun, reply minimally with funScore per destination (0-100) and a one-phrase reason; rank descending.' :
+        mode === 'food' ? '\nInstruction: If the latest user turn asks which has the best food, reply minimally with foodScore per destination (0-100) and a one-phrase cuisine reason; rank descending.' :
+        ''
+      ) },
       ...historyMessages,
       { role: 'user', content: user }
     ]
   });
 
   const encoder = new TextEncoder();
+  const recap = (() => {
+    const toneLead = (() => {
+      switch (tone) {
+        case 'surfer': return "Stoked for your trip —";
+        case 'friendly': return "Great plan —";
+        case 'formal': return "Summary —";
+        case 'concise': return "Summary —";
+        case 'enthusiastic': return "Awesome —";
+        default: return "Summary —";
+      }
+    })();
+    const bits: string[] = [];
+    if (preferences.destinationType && preferences.region) {
+      bits.push(`you're aiming for a ${String(preferences.destinationType).toLowerCase()} vibe in ${preferences.region}`);
+    } else if (preferences.region) {
+      bits.push(`you're considering ${preferences.region}`);
+    } else if (preferences.destinationType) {
+      bits.push(`you'd like a ${String(preferences.destinationType).toLowerCase()} destination`);
+    }
+    if (preferences.month) bits.push(`around ${preferences.month}`);
+    if (typeof preferences.durationDays === 'number') bits.push(`for about ${preferences.durationDays} day${preferences.durationDays === 1 ? '' : 's'}`);
+    if (typeof preferences.budgetUsd === 'number') bits.push(`with a total budget near $${preferences.budgetUsd.toLocaleString()}`);
+    if (preferences.activities?.length) bits.push(`and you're into ${preferences.activities.slice(0, 3).join(', ')}`);
+    return bits.length ? `${toneLead} ${bits.join(', ')}. Here are tailored picks:\n\n` : '';
+  })();
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       try {
+        // Emit recap first for default mode only
+        if (mode === 'none' && recap) {
+          controller.enqueue(encoder.encode(recap));
+        }
         for await (const part of completion) {
           const delta = part.choices?.[0]?.delta?.content;
           if (delta) controller.enqueue(encoder.encode(delta));

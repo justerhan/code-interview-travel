@@ -22,7 +22,17 @@ Rules:
 - budget can be parsed from phrases like 'under $2000'
 - month: map relative like 'next month' to a month name if possible, else keep original phrase
 - activities: split by commas/and phrases (adventure, food, hiking, museums, nightlife, beach, etc.)
-- weather must be a single short string summary (NOT an object; do not return per-destination weather here)`;
+- weather must be a single short string summary (NOT an object; do not return per-destination weather here)
+
+Context-handling directives (apply silently without changing output shape):
+- Always consider the full conversation history provided in messages when interpreting ambiguous phrases.
+- If the user references earlier context (e.g., "that plan"), resolve it using the prior messages.
+- If key details are missing and cannot be inferred, prefer leaving the corresponding fields undefined/null over guessing.
+- Retain important details (names, preferences, goals) if they appear in history, but only output fields defined in the schema.
+- Keep your internal reasoning concise and avoid verbose content.
+
+Meta self-check (internal only; do not include in output):
+1) Did you consider conversation history? 2) Did you avoid guessing when ambiguous? 3) Are fields aligned with the schema and normalized as strings/numbers?`;
 
   const historyMessages = Array.isArray(history)
     ? history.map((m: any) => ({ role: m.role as 'user' | 'assistant', content: m.content }))
